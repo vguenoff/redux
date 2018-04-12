@@ -90,6 +90,7 @@ function goals(state = [], action) {
     }
 }
 
+// root reducer
 function app(state = {}, action) {
     return {
         todos: todos(state.todos, action),
