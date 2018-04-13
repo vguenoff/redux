@@ -41,6 +41,37 @@
         const addGoalAction = goal => ({ type: ADD_GOAL, goal });
         const removeGoalAction = id => ({ type: REMOVE_GOAL, id });
 
+        // Middleware - third party extension point between dispatching an action and the moment it reaches the reducer
+        // Middleware allows you to hook into the moment after an action is dispatched and before the reducer runs
+        // To create custom middleware we have to use curring
+        const checker = store => next => action => {
+            if (
+                action.type === ADD_TODO &&
+                action.todo.name.toLowerCase().indexOf('bitcoin') !== -1
+            ) {
+                return alert('Nope. Thats a bad idea.');
+            }
+
+            if (
+                action.type === ADD_GOAL &&
+                action.goal.name.toLowerCase().indexOf('bitcoin') !== -1
+            ) {
+                return alert('Nope. That\'s a bad idea.');
+            }
+
+            return next(action);
+        }
+
+        const logger = store => next => action => {
+            console.group(action.type);
+            console.log('Action: ', action);
+            console.log('Prev state: ', store.getState());
+            const result = next(action);
+            console.log('Next state: ', store.getState());
+            console.groupEnd();
+            return result;
+        }
+
         // Todos reducer function
         function todos(state = [], action) {
             switch (action.type) {
@@ -76,16 +107,14 @@
         }
 
         // Store
-        const { createStore, combineReducers } = Redux;
+        const { createStore, combineReducers, applyMiddleware } = Redux;
         const store = createStore(
-            combineReducers({ todos, goals })
+            combineReducers({ todos, goals }),
+            applyMiddleware(checker, logger)
         );
 
         const unsubscribe = store.subscribe(() => {
             const { todos, goals } = store.getState();
-
-            console.log('todos', todos);
-            console.log('goals', goals);
 
             $('todos').innerHTML = '';
             $('goals').innerHTML = '';
@@ -108,6 +137,13 @@
                     complete: false,
                 })
             );
+        }
+
+        function addGoal() {
+            const input = $('goal');
+            const name = input.value;
+            input.value = '';
+
         }
 
         function addGoal() {
