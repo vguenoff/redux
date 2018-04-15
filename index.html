@@ -9,6 +9,7 @@
     <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
     <script crossorigin src="https://unpkg.com/redux-thunk@2.1.0/dist/redux-thunk.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-redux@5.0.6/dist/react-redux.min.js"></script>
     <script src='https://unpkg.com/babel-standalone@6.15.0/babel.min.js'></script>
     <script src="https://tylermcginnis.com/goals-todos-api/index.js"></script>
 
@@ -218,21 +219,6 @@
             );
         }
 
-        class ConnectedTodos extends React.Component {
-            render() {
-                return (
-                    <Consumer>
-                        {(store) => (
-                            <Todos
-                                todos={store.getState().todos}
-                                dispatch={store.dispatch}
-                            />
-                        )}
-                    </Consumer>
-                );
-            }
-        }
-
         class Todos extends React.Component {
             addItem = e => {
                 e.preventDefault();
@@ -271,20 +257,9 @@
             }
         }
 
-        class ConnectedGoals extends React.Component {
-            render() {
-                return (
-                    <Consumer>
-                        {store => (
-                            <Goals
-                                goals={store.getState().goals}
-                                dispatch={store.dispatch}
-                            />
-                        )}
-                    </Consumer>
-                );
-            }
-        }
+        const ConnectedTodos = ReactRedux.connect(state => ({
+            todos: state.todos,
+        }))(Todos);
 
         class Goals extends React.Component {
             addItem = e => {
@@ -316,24 +291,17 @@
             }
         }
 
-        class ConnectedApp extends React.Component {
-            render() {
-                return (
-                    <Consumer>
-                        {store => <App store={store}/>}
-                    </Consumer>
-                );
-            }
-        }
+        const ConnectedGoals = ReactRedux.connect(state => ({
+            goals: state.goals,
+        }))(Goals);
 
         class App extends React.Component {
             componentDidMount() {
-                this.props.store.dispatch(handleInitialData());
-
-                store.subscribe(() => this.forceUpdate());
+                this.props.dispatch(handleInitialData());
             }            
+
             render() {
-                const { loading } = store.getState();
+                const { loading } = this.props;
 
                 return (
                     <div>
@@ -350,22 +318,14 @@
             }
         }
 
-        const { Provider, Consumer } = React.createContext();
-
-        class ContextProvider extends React.Component {
-            render() {
-                return (
-                    <Provider value={this.props.store}>
-                        {this.props.children}
-                    </Provider>
-                );
-            }
-        }
+        const ConnectedApp = ReactRedux.connect(state => ({
+            loading: state.loading,
+        }))(App);
 
         ReactDOM.render(
-            <ContextProvider store={store} >
+            <ReactRedux.Provider store={store} >
                 <ConnectedApp />
-            </ContextProvider>,
+            </ReactRedux.Provider>,
             document.getElementById('root')
         );
     </script>
