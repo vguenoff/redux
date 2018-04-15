@@ -27,6 +27,7 @@
         const TOGGLE_TODO = 'TOGGLE_TODO';
         const ADD_GOAL = 'ADD_GOAL';
         const REMOVE_GOAL = 'REMOVE_GOAL';
+        const RECEIVE_DATA = 'RECEIVE_DATA';
 
         // Action creators
         const addTodoAction = todo => ({ type: ADD_TODO, todo });
@@ -34,6 +35,7 @@
         const toggleTodoAction = id => ({ type: TOGGLE_TODO, id });
         const addGoalAction = goal => ({ type: ADD_GOAL, goal });
         const removeGoalAction = id => ({ type: REMOVE_GOAL, id });
+        const receiveDataAction = (todos, goals) => ({ type: RECEIVE_DATA, todos, goals });
 
         // Middleware - third party extension point between dispatching an action and the moment it reaches the reducer
         // Middleware allows you to hook into the moment after an action is dispatched and before the reducer runs
@@ -84,6 +86,8 @@
                                     complete: !todo.complete,
                                 }
                     );
+                case RECEIVE_DATA:
+                    return action.todos;
                 default:
                     return state;
             }
@@ -96,6 +100,18 @@
                     return state.concat(action.goal);
                 case REMOVE_GOAL:
                     return state.filter(goal => goal.id !== action.id);
+                case RECEIVE_DATA:
+                    return action.goals;
+                default:
+                    return state;
+            }
+        }
+
+        // Loading reducer function
+        function loading(state = true, action) {
+            switch (action.type) {
+                case RECEIVE_DATA:
+                    return false;
                 default:
                     return state;
             }
@@ -104,7 +120,7 @@
         // Store
         const { createStore, combineReducers, applyMiddleware } = Redux;
         const store = createStore(
-            combineReducers({ todos, goals }),
+            combineReducers({ todos, goals, loading }),
             applyMiddleware(checker, logger)
         );
 
@@ -125,7 +141,7 @@
                             >
                                 {item.name}
                             </span>
-                            <span onClick={() => remove(item.id)}>
+                            <span onClick={() => remove(item)}>
                                 &nbsp;[X]
                             </span>
                         </li>
@@ -147,9 +163,31 @@
                 }));
             }
 
-            removeTodo = id => this.props.store.dispatch(removeTodoAction(id));
+            removeTodo = todo => {
+                const { store } = this.props;
+                
+                // Optimistic updating technique
+                // Remove it locally to get instant feedback and then if the API request fails we're adding it back
+
+                store.dispatch(removeTodoAction(todo.id))
+                
+                return API.deleteTodo(todo.id).catch(() => {
+                    store.dispatch(addTodoAction(todo))
+                    alert('An error occurred. Try again.');
+                });
+            };
             
-            toggleTodo = id => this.props.store.dispatch(toggleTodoAction(id));
+            toggleTodo = id => {
+                const { store } = this.props;
+                
+                store.dispatch(toggleTodoAction(id));
+
+                return API.saveTodoToggle(id).catch(() => {
+                    store.dispatch(toggleTodoAction(id));
+                    
+                    alert('An error occurred. Try again.');
+                });
+            }
 
             render() {
                 return (
@@ -183,7 +221,15 @@
                 }));
             }
 
-            removeGoal = id => this.props.store.dispatch(removeGoalAction(id));
+            removeGoal = goal => {
+                const { store } = this.props;
+                store.dispatch(removeGoalAction(goal.id));
+
+                return API.deleteGoal(goal.id).catch(() => {
+                    store.dispatch(addGoalAction(goal));
+                    alert('An error occurred. Try again.');                    
+                })
+            }
 
             render() {
                 return (
@@ -205,16 +251,31 @@
             componentDidMount() {
                 const { store } = this.props;
 
+                Promise.all([
+                    API.fetchTodos(),
+                    API.fetchGoals(),
+                ]).then(([todos, goals]) => {
+                    store.dispatch(receiveDataAction(todos, goals));
+                })
+
                 store.subscribe(() => this.forceUpdate());
             }            
             render() {
                 const { store } = this.props;
-                const { todos, goals } = store.getState();
+                const { todos, goals, loading } = store.getState();
 
                 return (
                     <div>
-                        <Todos todos={todos} store={store}/>
-                        <Goals goals={goals} store={store}/>
+                        {
+                            loading ? 
+                                <h3>Loading...</h3>
+                                : (
+                                    <React.Fragment>
+                                        <Todos todos={todos} store={store}/>
+                                        <Goals goals={goals} store={store}/>
+                                    </React.Fragment>
+                                ) 
+                        }
                     </div>
                 );
             }
